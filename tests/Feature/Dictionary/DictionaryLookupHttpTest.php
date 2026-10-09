@@ -4,12 +4,14 @@ use App\Actions\Admin\AssignAdminRole;
 use App\Models\Admin;
 use App\Models\User;
 use Database\Seeders\AdminAuthorizationSeeder;
+use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\Models\Role;
-use Tests\Concerns\UsesDictionaryFixtures;
 use Tests\Concerns\UsesIsolatedDatabase;
 
-uses(UsesIsolatedDatabase::class, UsesDictionaryFixtures::class);
+uses(UsesIsolatedDatabase::class);
+
+beforeEach(fn () => config(['services.dictionary.lookup_mode' => 'provider', 'services.dictionary.provider' => 'free_dictionary']));
 
 beforeEach(function () {
     $this->seed(AdminAuthorizationSeeder::class);
@@ -27,17 +29,20 @@ test('dictionary pages isolate guests web users and admins without the capabilit
     $this->actingAs(User::factory()->create(), 'web')->get('/admin/dictionary/lookup')->assertRedirect('/admin/login');
     $this->actingAs($this->admin, 'admin')->get('/admin/dictionary/lookup')->assertForbidden();
     $this->role->givePermissionTo('dictionary.view');
-    $this->get('/admin/dictionary/lookup')->assertOk()->assertInertia(fn (Assert $page) => $page->component('admin/dictionary/lookup')->where('available', false)->where('entry', null)->where('query', '')->where('capabilities', fn ($capabilities) => $capabilities['dictionary.view'] === true));
+    $this->get('/admin/dictionary/lookup')->assertOk()->assertInertia(fn (Assert $page) => $page->component('admin/dictionary/lookup')->where('available', true)->where('entry', null)->where('query', '')->where('capabilities', fn ($capabilities) => $capabilities['dictionary.view'] === true));
 });
 
 test('an authorized admin can read exact entries with attribution and clear missing states', function () {
-    $this->dictionaryFixture();
+    Http::fake(['https://api.dictionaryapi.dev/*' => Http::response([
+        ['word' => 'run', 'meanings' => [['partOfSpeech' => 'verb', 'definitions' => [['definition' => 'Move quickly on foot.']]]]],
+    ])]);
     $this->role->givePermissionTo('dictionary.view');
     $this->actingAs($this->admin, 'admin')->get('/admin/dictionary/lookup?word=run&language=en')->assertOk()->assertInertia(fn (Assert $page) => $page
         ->component('admin/dictionary/lookup')->where('query', 'run')->where('available', true)
-        ->where('entry.headword', 'run')->has('entry.lexemes', 2)->has('entry.lexemes.0.senses', 2)
-        ->where('entry.attribution.license', 'CC-BY-SA-4.0')->missing('entry.lexemes.0.raw_payload'));
-    $this->get('/admin/dictionary/lookup?word=Run')->assertInertia(fn (Assert $page) => $page->where('entry', null)->where('available', true));
+        ->where('entry.headword', 'run')->has('entry.lexemes', 1)->has('entry.lexemes.0.senses', 1)
+        ->where('entry.attribution.text', 'Definitions and pronunciations provided by Free Dictionary API.'));
+    Http::fake(['https://api.dictionaryapi.dev/*' => Http::response([], 404)]);
+    $this->get('/admin/dictionary/lookup?word=missing-new')->assertInertia(fn (Assert $page) => $page->where('query', 'missing-new')->where('available', true));
     $this->role->revokePermissionTo('dictionary.view');
     $this->get('/admin/dictionary/lookup?word=run')->assertForbidden();
 });

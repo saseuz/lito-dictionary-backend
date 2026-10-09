@@ -39,10 +39,12 @@ export default function DictionaryLookup({
     query,
     available,
     entry,
+    error,
 }: {
     query: string;
     available: boolean;
     entry: DictionaryEntry | null;
+    error: string | null;
 }) {
     return (
         <>
@@ -93,14 +95,18 @@ export default function DictionaryLookup({
                     >
                         <BookOpen className="mx-auto mb-4 size-8 text-muted-foreground" />
                         <h2 className="font-semibold">
-                            {!available
+                            {error
+                                ? error
+                                : !available
                                 ? 'No dictionary data is active yet'
                                 : query
                                   ? `No entry found for “${query}”`
                                   : 'Explore a word'}
                         </h2>
                         <p className="mx-auto mt-2 max-w-lg text-sm text-muted-foreground">
-                            {!available
+                            {error
+                                ? 'The lookup provider could not return a response. Check the provider configuration or try again.'
+                                : !available
                                 ? 'An operator must import and activate a reviewed dataset before entries appear here.'
                                 : query
                                   ? 'Try the exact spelling and capitalization. The current fixture contains only a few words.'
@@ -137,7 +143,7 @@ export default function DictionaryLookup({
                                             target="_blank"
                                             rel="noreferrer"
                                         >
-                                            Wiktionary entry ↗
+                                            Provider source ↗
                                         </a>
                                     </header>
                                     {lexeme.pronunciations.length > 0 && (
@@ -309,7 +315,7 @@ export default function DictionaryLookup({
                                     target="_blank"
                                     rel="noreferrer"
                                 >
-                                    Kaikki / Wiktextract
+                                    Dictionary provider
                                 </a>
                             </p>
                             <p className="text-muted-foreground">

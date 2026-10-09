@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests\Admin;
 
-use App\Models\Dictionary\Word;
 use App\Support\Dictionary\DictionaryText;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
@@ -14,7 +13,7 @@ class LookupDictionaryRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return Gate::allows('viewAny', Word::class);
+        return Gate::allows('dictionary.view');
     }
 
     protected function prepareForValidation(): void

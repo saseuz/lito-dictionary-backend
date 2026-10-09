@@ -2,13 +2,14 @@
 
 namespace App\Providers;
 
+use App\Contracts\DictionaryProvider;
 use App\Models\Admin;
-use App\Models\Dictionary\Word;
 use App\Models\Permission;
 use App\Policies\AdminPolicy;
-use App\Policies\DictionaryWordPolicy;
 use App\Policies\PermissionPolicy;
 use App\Policies\RolePolicy;
+use App\Services\Dictionary\FreeDictionaryProvider;
+use App\Services\Dictionary\MerriamWebsterProvider;
 use App\Support\AdminMutations;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
@@ -25,7 +26,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(DictionaryProvider::class, function () {
+            return match (config('services.dictionary.provider', 'free_dictionary')) {
+                'merriam_webster' => app(MerriamWebsterProvider::class),
+                default => app(FreeDictionaryProvider::class),
+            };
+        });
     }
 
     /**
@@ -35,7 +41,6 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
         Gate::policy(Admin::class, AdminPolicy::class);
-        Gate::policy(Word::class, DictionaryWordPolicy::class);
         Gate::policy(Role::class, RolePolicy::class);
         Gate::policy(Permission::class, PermissionPolicy::class);
         Gate::before(fn ($account) => $account instanceof Admin && AdminMutations::isSuper($account) ? true : null);
