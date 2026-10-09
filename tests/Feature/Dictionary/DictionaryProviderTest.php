@@ -20,10 +20,29 @@ test('free dictionary provider fetches, normalizes, and caches a word', function
     expect($result['available'])->toBeTrue()->and($result['entry']['headword'])->toBe('hello');
     expect($result['entry']['lexemes'][0]['senses'][0]['definitions'])->toBe(['A greeting.']);
     expect(DictionaryResult::first()->provider)->toBe('free_dictionary');
+    expect(DictionaryResult::first()->expires_at)->toBeNull();
 
     Http::preventStrayRequests();
     $cached = app(LookupWord::class)->handle('hello');
     expect($cached['entry']['headword'])->toBe('hello');
+    Http::assertSentCount(1);
+});
+
+test('saved words remain usable beyond the former expiration without another API request', function () {
+    Http::fake(['*' => Http::response([['word' => 'hello', 'meanings' => [
+        ['partOfSpeech' => 'noun', 'definitions' => [['definition' => 'A greeting.']]],
+    ]]])]);
+    $original = app(LookupWord::class)->handle('hello');
+    // Simulate an existing row saved under the old TTL policy.
+    DictionaryResult::first()->update(['expires_at' => now()->subDay()]);
+    $this->travel(10)->years();
+    try {
+        expect(app(LookupWord::class)->handle('hello'))->toBe($original);
+        Http::assertSentCount(1);
+        expect(DictionaryResult::count())->toBe(1);
+    } finally {
+        $this->travelBack();
+    }
 });
 
 test('provider misses are cached but failures are not persisted', function () {

@@ -6,7 +6,6 @@ return [
         'provider' => env('DICTIONARY_PROVIDER', 'free_dictionary'),
         'lookup_mode' => env('DICTIONARY_LOOKUP_MODE', 'provider'),
         'timeout' => env('DICTIONARY_PROVIDER_TIMEOUT', 5),
-        'cache_ttl' => env('DICTIONARY_PROVIDER_CACHE_TTL', 86400),
         'merriam_webster' => [
             'product' => env('MERRIAM_WEBSTER_PRODUCT', 'learners'),
             'keys' => [
