@@ -2,7 +2,10 @@
 
 namespace App\Providers;
 
+use App\Actions\Dictionary\LookupWord;
+use App\Actions\Dictionary\ProviderLookup;
 use App\Contracts\DictionaryProvider;
+use App\Http\Controllers\Api\DictionaryController;
 use App\Models\Admin;
 use App\Models\Permission;
 use App\Policies\AdminPolicy;
@@ -12,9 +15,12 @@ use App\Services\Dictionary\FreeDictionaryProvider;
 use App\Services\Dictionary\MerriamWebsterProvider;
 use App\Support\AdminMutations;
 use Carbon\CarbonImmutable;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 use Spatie\Permission\Models\Role;
@@ -26,6 +32,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // Live public requests bypass permanent storage until retention rights are settled.
+        $this->app->when(DictionaryController::class)
+            ->needs(LookupWord::class)
+            ->give(fn () => new LookupWord(new ProviderLookup(
+                app(MerriamWebsterProvider::class), 'merriam_webster', persist: false,
+            )));
         $this->app->bind(DictionaryProvider::class, function () {
             return match (config('services.dictionary.provider', 'free_dictionary')) {
                 'merriam_webster' => app(MerriamWebsterProvider::class),
@@ -40,6 +52,9 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+        RateLimiter::for('public-dictionary', fn (Request $request) => Limit::perMinute(30)->by($request->ip())
+            ->response(fn () => response()->json(['error' => ['code' => 'rate_limited', 'message' => 'Too many lookups. Try again in a minute.']], 429))
+        );
         Gate::policy(Admin::class, AdminPolicy::class);
         Gate::policy(Role::class, RolePolicy::class);
         Gate::policy(Permission::class, PermissionPolicy::class);

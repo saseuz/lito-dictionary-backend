@@ -37,7 +37,7 @@ test('saved words remain usable beyond the former expiration without another API
     DictionaryResult::first()->update(['expires_at' => now()->subDay()]);
     $this->travel(10)->years();
     try {
-        expect(app(LookupWord::class)->handle('hello'))->toBe($original);
+        expect(app(LookupWord::class)->handle('hello'))->toBe([...$original, 'origin' => 'local']);
         Http::assertSentCount(1);
         expect(DictionaryResult::count())->toBe(1);
     } finally {

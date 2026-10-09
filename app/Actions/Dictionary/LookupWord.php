@@ -6,7 +6,7 @@ class LookupWord
 {
     public function __construct(private ProviderLookup $providerLookup) {}
 
-    /** @return array{available: bool, entry: array<string, mixed>|null, error: string|null} */
+    /** @return array{available: bool, entry: array<string, mixed>|null, error: string|null, origin?: string} */
     public function handle(?string $spelling, string $language = 'en'): array
     {
         if ($spelling === null) {

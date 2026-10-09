@@ -24,7 +24,10 @@ class MerriamWebsterProvider implements DictionaryProvider
             }
             $response->throw();
             $payload = $response->json();
-            if (! is_array($payload) || ! is_array($payload[0] ?? null)) {
+            if (! is_array($payload)) {
+                return ['status' => 'error', 'entry' => null, 'attribution' => $this->attribution($product)];
+            }
+            if (! is_array($payload[0] ?? null)) {
                 return ['status' => 'miss', 'entry' => null, 'attribution' => $this->attribution()];
             }
 
@@ -41,11 +44,15 @@ class MerriamWebsterProvider implements DictionaryProvider
         $lexemes = [];
         foreach ($payload as $index => $item) {
             $definitions = $this->definitions($item['def'] ?? []);
-            $lexemes[] = ['id' => $index, 'partOfSpeech' => (string) ($item['fl'] ?? 'unknown'), 'etymology' => null, 'etymologyKey' => null, 'sourceUrl' => $this->attribution()['url'], 'pronunciations' => [], 'forms' => [], 'relations' => [], 'senses' => array_map(fn (string $definition, int $senseId): array => ['id' => $senseId, 'definitions' => [$definition], 'tags' => [], 'examples' => [], 'relations' => []], $definitions, array_keys($definitions))];
+            if ($definitions === []) {
+                $definitions = array_values(array_filter($item['shortdef'] ?? [], 'is_string'));
+            }
+            $lexemes[] = ['id' => $index, 'partOfSpeech' => (string) ($item['fl'] ?? 'unknown'), 'etymology' => null, 'etymologyKey' => null, 'sourceUrl' => $this->attribution($product)['url'], 'pronunciations' => [], 'forms' => [], 'relations' => [], 'senses' => array_map(fn (string $definition, int $senseId): array => ['id' => $senseId, 'definitions' => [$definition], 'tags' => [], 'examples' => [], 'relations' => []], $definitions, array_keys($definitions))];
         }
 
         return ['headword' => (string) ($first['meta']['id'] ?? ''), 'language' => 'English', 'lexemes' => $lexemes, 'attribution' => [
-            'text' => "Definitions provided by Merriam-Webster's {$product} Dictionary API.", 'license' => 'Merriam-Webster API terms', 'licenseUrl' => 'https://dictionaryapi.com/info/terms-of-use', 'sourceUrl' => $this->attribution()['url'], 'releaseKey' => "merriam-webster-{$product}", 'artifactKind' => 'provider', 'dumpDate' => null, 'extractorVersion' => 'provider', 'transformations' => 'Normalized by Lito Dictionary.',
+            'name' => $this->attribution($product)['source'],
+            'text' => 'Definitions provided by '.$this->attribution($product)['source'].'.', 'license' => 'Merriam-Webster API terms', 'licenseUrl' => 'https://dictionaryapi.com/info/terms-of-service', 'sourceUrl' => $this->attribution($product)['url'], 'releaseKey' => "merriam-webster-{$product}", 'artifactKind' => 'provider', 'dumpDate' => null, 'extractorVersion' => 'provider', 'transformations' => 'Normalized by Lito Dictionary.',
         ]];
     }
 
@@ -73,6 +80,8 @@ class MerriamWebsterProvider implements DictionaryProvider
     /** @return array{source: string, url: string, terms: string} */
     private function attribution(string $product = 'learners'): array
     {
-        return ['source' => "Merriam-Webster {$product} Dictionary API", 'url' => "https://www.dictionaryapi.com/products/api-{$product}-dictionary", 'terms' => 'https://dictionaryapi.com/info/terms-of-use'];
+        $title = $product === 'intermediate' ? 'Intermediate' : "Learner's";
+
+        return ['source' => "Merriam-Webster's {$title} Dictionary", 'url' => "https://www.dictionaryapi.com/products/api-{$product}-dictionary", 'terms' => 'https://dictionaryapi.com/info/terms-of-service'];
     }
 }

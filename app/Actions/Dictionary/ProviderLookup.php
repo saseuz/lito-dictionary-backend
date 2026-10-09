@@ -8,25 +8,27 @@ use App\Support\Dictionary\DictionaryText;
 
 class ProviderLookup
 {
-    public function __construct(private DictionaryProvider $provider) {}
+    public function __construct(private DictionaryProvider $provider, private ?string $identity = null, private bool $persist = true) {}
 
-    /** @return array{available: bool, entry: array<string, mixed>|null, error: string|null} */
+    /** @return array{available: bool, entry: array<string, mixed>|null, error: string|null, origin: string} */
     public function handle(string $word, string $language): array
     {
-        $name = (string) config('services.dictionary.provider', 'free_dictionary');
+        $word = DictionaryText::spelling($word);
+        $language = strtolower(trim($language));
+        $name = $this->identity ?? (string) config('services.dictionary.provider', 'free_dictionary');
         $hash = hash('sha256', $word);
-        $word = DictionaryResult::where(['provider' => $name, 'language' => $language, 'lookup_hash' => $hash])->first();
+        $saved = $this->persist ? DictionaryResult::where(['provider' => $name, 'language' => $language, 'lookup_hash' => $hash])->first() : null;
         // Reuse usable saved entries permanently. Legacy incomplete payloads
         // must still be fetched again to avoid breaking the detail page.
-        $wordIsRenderable = is_array($word?->payload)
-            && isset($word->payload['attribution']['license'])
-            && isset($word->payload['lexemes'][0]['senses'][0]['tags']);
-        if ($word && $word->status === 'hit' && $wordIsRenderable) {
-            return ['available' => true, 'entry' => $word->payload, 'error' => null];
+        $wordIsRenderable = is_array($saved?->payload)
+            && isset($saved->payload['attribution']['license'])
+            && isset($saved->payload['lexemes'][0]['senses'][0]['tags']);
+        if ($saved && $saved->status === 'hit' && $wordIsRenderable) {
+            return ['available' => true, 'entry' => $saved->payload, 'error' => null, 'origin' => 'local'];
         }
         $result = $this->provider->lookup($word, $language);
         $entry = $result['entry'];
-        if ($result['status'] !== 'error') {
+        if ($this->persist && $result['status'] !== 'error') {
             DictionaryResult::updateOrCreate(
                 ['provider' => $name, 'language' => $language, 'lookup_hash' => $hash],
                 ['lookup' => $word, 'status' => $result['status'], 'payload' => $entry, 'attribution' => json_encode($result['attribution'], JSON_THROW_ON_ERROR), 'terms_url' => $result['attribution']['terms'], 'fetched_at' => now(), 'expires_at' => null, 'response_hash' => $entry ? hash('sha256', DictionaryText::canonical($entry)) : null, 'error_message' => null]
@@ -37,6 +39,7 @@ class ProviderLookup
             'available' => $result['status'] !== 'error',
             'entry' => $entry,
             'error' => $result['status'] === 'error' ? 'Provider failed. Please try again later.' : null,
+            'origin' => 'provider',
         ];
     }
 }
