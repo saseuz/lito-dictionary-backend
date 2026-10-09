@@ -1,0 +1,9 @@
+# Tiny English dictionary fixture
+
+This is **hand-adapted Wiktextract-shaped test data**, not a downloaded Kaikki snapshot. Six lines contain four distinct English entries (`run` verb/noun, `ran`, `sprint`), one deliberate duplicate, and a minimal non-English record to exercise filtering. It is not a representative coverage or performance sample.
+
+Selected meanings were paraphrased from English Wiktionary's [run](https://en.wiktionary.org/wiki/run#English), [ran](https://en.wiktionary.org/wiki/ran#English), and [sprint](https://en.wiktionary.org/wiki/sprint#English) entries, consulted 2026-10-09. Credit: English Wiktionary contributors. The original example was authored for Lito's fixture. Text and fixture adaptations are distributed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/); this does not change the application code's license. Contributor histories: [run](https://en.wiktionary.org/w/index.php?title=run&action=history), [ran](https://en.wiktionary.org/w/index.php?title=ran&action=history), [sprint](https://en.wiktionary.org/w/index.php?title=sprint&action=history). No specific revision/dump is claimed.
+
+The manifest records every kind of transformation, content checksum, adapter version, and the one reviewed example's record/path/text hashes. Remaining optional upstream fields are intentionally absent. Kaikki/Wiktextract is credited for the interface/extraction project, not falsely credited with extracting this handcrafted file. A future real snapshot must record its actual provenance and pass measured staging validation.
+
+The fixture importer accepts only local files, at most 1 MiB / 100 nonblank records. The manifest limit is 64 KiB. See [the dictionary operations guide](../../../docs/dictionary-import.md) before running any application writes.

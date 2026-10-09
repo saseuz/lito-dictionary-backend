@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "artifact_sha256": "e707fd14ca62a074e0d5c94712a697db96960eacefdd9e6f9216d3c4abe03e47",
+  "adapter_version": "en-kaikki-fixture-v1",
+  "scope_key": "en-v1",
+  "artifact_kind": "fixture",
+  "source_url": "https://kaikki.org/dictionary/rawdata.html",
+  "license_identifier": "CC-BY-SA-4.0",
+  "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "attribution_text": "Adapted from English Wiktionary contributors; formatted for the Kaikki/Wiktextract data interface by Lito Dictionary.",
+  "transformations": "Hand-adapted test fixture, not an untouched Kaikki extract. Selected definitions paraphrased; examples authored for this fixture; pronunciation and forms reduced; relation coverage reduced; one duplicate and a minimal non-English filter record added. No corpus was downloaded.",
+  "extractor_version": "not run — handcrafted Wiktextract-shaped fixture v1",
+  "upstream_dump_date": null,
+  "extracted_at": null,
+  "pages": [
+    "run",
+    "ran",
+    "sprint"
+  ],
+  "reviewed_examples": [
+    {
+      "record_sha256": "303881118d6bf9aa0584457b922fbc8131cccb553e61213b69ce9802245ef035",
+      "path": "senses.0.examples.0",
+      "text_sha256": "0e46c4ec44b37f55ba3e277cc36dee6fd673e87a29432b64d35b9f3d2695c69a",
+      "license_identifier": "CC-BY-SA-4.0",
+      "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "attribution_text": "Lito Dictionary fixture contributors",
+      "rights_note": "Original sentence authored for this fixture; distributed with the fixture under CC BY-SA 4.0."
+    }
+  ]
+}
