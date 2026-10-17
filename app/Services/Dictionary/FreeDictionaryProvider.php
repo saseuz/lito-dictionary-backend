@@ -30,7 +30,10 @@ class FreeDictionaryProvider implements DictionaryProvider
         }
     }
 
-    /** @param array<int, mixed> $payload @return array<string, mixed> */
+    /**
+     * @param  array<int, mixed>  $payload
+     * @return array<string, mixed>
+     */
     private function normalize(array $payload): array
     {
         $first = is_array($payload[0] ?? null) ? $payload[0] : [];

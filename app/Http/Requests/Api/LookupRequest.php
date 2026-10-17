@@ -28,6 +28,7 @@ class LookupRequest extends FormRequest
         }
     }
 
+    /** @return array<string, list<string>> */
     public function rules(): array
     {
         return ['word' => ['required', 'string', 'max:255'], 'language' => ['required', 'in:en']];

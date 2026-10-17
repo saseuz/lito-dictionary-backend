@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
+/** @property array<string, mixed>|null $payload */
 #[Fillable(['provider', 'language', 'lookup', 'lookup_hash', 'status', 'payload', 'attribution', 'terms_url', 'fetched_at', 'expires_at', 'response_hash', 'error_message'])]
 class DictionaryResult extends Model
 {

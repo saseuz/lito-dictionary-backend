@@ -37,44 +37,128 @@ class MerriamWebsterProvider implements DictionaryProvider
         }
     }
 
-    /** @param array<int, mixed> $payload @return array<string, mixed> */
+    /**
+     * @param  array<int, mixed>  $payload
+     * @return array<string, mixed>
+     */
     private function normalize(array $payload, string $product): array
     {
         $first = $payload[0];
         $lexemes = [];
         foreach ($payload as $index => $item) {
-            $definitions = $this->definitions($item['def'] ?? []);
-            if ($definitions === []) {
-                $definitions = array_values(array_filter($item['shortdef'] ?? [], 'is_string'));
+            $senses = $this->senses($item['def'] ?? [], $product);
+            if ($senses === []) {
+                $senses = array_map(fn (string $text): array => ['definitions' => [$this->plainText($text)], 'examples' => []], array_values(array_filter($item['shortdef'] ?? [], 'is_string')));
             }
-            $lexemes[] = ['id' => $index, 'partOfSpeech' => (string) ($item['fl'] ?? 'unknown'), 'etymology' => null, 'etymologyKey' => null, 'sourceUrl' => $this->attribution($product)['url'], 'pronunciations' => [], 'forms' => [], 'relations' => [], 'senses' => array_map(fn (string $definition, int $senseId): array => ['id' => $senseId, 'definitions' => [$definition], 'tags' => [], 'examples' => [], 'relations' => []], $definitions, array_keys($definitions))];
+            $lexemes[] = ['id' => $index, 'partOfSpeech' => (string) ($item['fl'] ?? 'unknown'), 'etymology' => null, 'etymologyKey' => null, 'sourceUrl' => $this->attribution($product)['url'], 'pronunciations' => $this->pronunciations($item['hwi']['prs'] ?? []), 'forms' => [], 'relations' => [], 'senses' => array_map(fn (array $sense, int $senseId): array => ['id' => $senseId, 'tags' => [], 'relations' => [], ...$sense], $senses, array_keys($senses))];
         }
 
-        return ['headword' => (string) ($first['meta']['id'] ?? ''), 'language' => 'English', 'lexemes' => $lexemes, 'attribution' => [
+        return ['headword' => str_replace('*', '', (string) ($first['hwi']['hw'] ?? preg_replace('/:\d+$/', '', (string) ($first['meta']['id'] ?? '')))), 'language' => 'English', 'lexemes' => $lexemes, 'attribution' => [
             'name' => $this->attribution($product)['source'],
             'text' => 'Definitions provided by '.$this->attribution($product)['source'].'.', 'license' => 'Merriam-Webster API terms', 'licenseUrl' => 'https://dictionaryapi.com/info/terms-of-service', 'sourceUrl' => $this->attribution($product)['url'], 'releaseKey' => "merriam-webster-{$product}", 'artifactKind' => 'provider', 'dumpDate' => null, 'extractorVersion' => 'provider', 'transformations' => 'Normalized by Lito Dictionary.',
         ]];
     }
 
-    /** @param array<int, mixed> $definitions @return list<string> */
-    private function definitions(array $definitions): array
+    /**
+     * @param  array<int, mixed>  $definitions
+     * @return list<array{definitions: list<string>, examples: list<array<string, string>>}>
+     */
+    private function senses(array $definitions, string $product): array
+    {
+        $senses = [];
+        foreach ($definitions as $definition) {
+            $this->collectSenses($definition['sseq'] ?? [], $product, $senses);
+        }
+
+        return $senses;
+    }
+
+    /**
+     * Traverse sense groups (including pseq/bs) without detaching examples from their sense.
+     *
+     * @param  array<mixed>  $node
+     * @param  list<array{definitions: list<string>, examples: list<array<string, string>>}>  $senses
+     */
+    private function collectSenses(array $node, string $product, array &$senses): void
+    {
+        if (($node[0] ?? null) === 'sense' && is_array($node[1] ?? null)) {
+            $senses[] = $this->sense($node[1], $product);
+            if (is_array($node[1]['sdsense'] ?? null)) {
+                $senses[] = $this->sense($node[1]['sdsense'], $product);
+            }
+
+            return;
+        }
+        if (is_array($node['sense'] ?? null)) {
+            $this->collectSenses(['sense', $node['sense']], $product, $senses);
+
+            return;
+        }
+        foreach ($node as $child) {
+            if (is_array($child)) {
+                $this->collectSenses($child, $product, $senses);
+            }
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $sense
+     * @return array{definitions: list<string>, examples: list<array<string, string>>}
+     */
+    private function sense(array $sense, string $product): array
     {
         $texts = [];
-        foreach ($definitions as $definition) {
-            foreach (($definition['sseq'] ?? []) as $sequence) {
-                foreach ($sequence as $sense) {
-                    if (($sense[0] ?? null) === 'sense') {
-                        foreach (($sense[1]['dt'] ?? []) as $detail) {
-                            if (($detail[0] ?? null) === 'text' && is_string($detail[1] ?? null)) {
-                                $texts[] = trim(preg_replace('/\{[^}]+\}/', '', $detail[1]) ?? $detail[1]);
-                            }
-                        }
+        $examples = [];
+        foreach ($sense['dt'] ?? [] as $detail) {
+            if (($detail[0] ?? null) === 'text' && is_string($detail[1] ?? null)) {
+                $text = $this->plainText($detail[1]);
+                if ($text !== '') {
+                    $texts[] = $text;
+                }
+            }
+            if (($detail[0] ?? null) === 'vis' && is_array($detail[1] ?? null)) {
+                foreach ($detail[1] as $example) {
+                    // External quotations have separate rights; include provider-authored examples only.
+                    if (! is_string($example['t'] ?? null) || isset($example['aq'])) {
+                        continue;
+                    }
+                    $text = $this->plainText($example['t']);
+                    if ($text !== '') {
+                        $examples[] = ['text' => $text, 'attribution' => $this->attribution($product)['source'], 'license' => 'Merriam-Webster API terms', 'licenseUrl' => $this->attribution($product)['terms']];
                     }
                 }
             }
         }
 
-        return array_values(array_filter($texts));
+        return ['definitions' => $texts, 'examples' => $examples];
+    }
+
+    /**
+     * @param  array<int, mixed>  $pronunciations
+     * @return list<array{text: string, notation: string, audio: null}>
+     */
+    private function pronunciations(array $pronunciations): array
+    {
+        $result = [];
+        foreach ($pronunciations as $pronunciation) {
+            foreach (['ipa', 'mw', 'wod'] as $notation) {
+                if (is_string($pronunciation[$notation] ?? null) && trim($pronunciation[$notation]) !== '') {
+                    $result[] = ['text' => trim($pronunciation[$notation]), 'notation' => $notation, 'audio' => null];
+                    break;
+                }
+            }
+        }
+
+        return $result;
+    }
+
+    private function plainText(string $text): string
+    {
+        // Keep the visible word in cross-reference tokens; render formatting as plain text.
+        $text = preg_replace('/\{(?:a_link|d_link|dxt|et_link|i_link|mat|sx)\|([^|}]+)[^}]*\}/', '$1', $text) ?? $text;
+        $text = str_replace(['{bc}', '{ldquo}', '{rdquo}', '{p_br}'], [': ', '“', '”', ' '], $text);
+
+        return ltrim(trim(preg_replace('/\{[^}]+\}/', '', $text) ?? $text), ': ');
     }
 
     /** @return array{source: string, url: string, terms: string} */

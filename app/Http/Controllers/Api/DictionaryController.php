@@ -17,7 +17,7 @@ class DictionaryController extends Controller
         if (! $result['available']) {
             return response()->json(['error' => ['code' => 'provider_unavailable', 'message' => 'Dictionary provider unavailable. Please try again later.']], 503);
         }
-        if ($result['entry'] === null) {
+        if ($result['entry'] === null || ! isset($result['origin'])) {
             return response()->json(['error' => ['code' => 'not_found', 'message' => 'No dictionary entry found.']], 404);
         }
         $entry = $result['entry'];
